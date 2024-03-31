@@ -26,6 +26,34 @@ unsigned long authorized_key(unsigned long key){
     return key;
 }
 
+int validation_key(unsigned long key){
+    char magic_1, magic_2;
+    if(key % 2 != 0){
+        printf("1\n");
+        return 0;
+    }
+
+    key = key >> 1;
+    magic_1 = (char)key;
+    magic_1 &= 0x0F;
+
+    key = key >> 4;
+
+    if(key % 2 != 1){
+        printf("2\n");
+        return 0;
+    }
+    
+    key = key >> 1;
+    magic_2 = (char)key;
+    magic_2 &= 0x0F;
+
+    if(magic_1 != magic_2)  {
+        printf("3\n");
+        return 0;
+    }
+    return 1;
+}
 unsigned long generate_key(){
     unsigned long key;
     int i = 0;
@@ -43,10 +71,14 @@ unsigned long generate_key(){
 
 
 int main(void){
-    
-    printf("key: %lu\n", generate_key());
-    printf("key: %lu\n", generate_key());
-    printf("key: %lu\n", generate_key());
+    unsigned long key;
+    printf("key: ");
+    scanf("%lu", &key);
+    printf("key: %d\n", validation_key(key));
+    printf("key: %d\n", validation_key(generate_key()));
+    printf("key: %d\n", validation_key(generate_key()));
+    printf("key: %d\n", validation_key(generate_key()));
+
 
     return 0;
 }
