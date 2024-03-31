@@ -1,13 +1,41 @@
-#include <iostream>
-#include <cstring>
-#include <unistd.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
+#include "pch.h"
+
+static map<string, unsigned long> keys;
+
+void client_handle(int socket){
+    unsigned long value = 0;
+    
+    struct sockaddr_in client_addr;
+    socklen_t addr_len = sizeof(client_addr);
+
+    // Get the client's IP address
+    if (getpeername(socket, (struct sockaddr *)&client_addr, &addr_len) == -1) {
+        std::cerr << "getpeername failed" << std::endl;
+        close(socket);
+        return;
+    }
+
+    char ip_str[INET_ADDRSTRLEN];
+    inet_ntop(AF_INET, &(client_addr.sin_addr), ip_str, INET_ADDRSTRLEN);
+    std::cout << "Client IP address: " << ip_str << std::endl;
 
 
-#define PORT 1717
+    // Read unsigned long from the client
+    if (read(socket, &value, sizeof(unsigned long)) < 0) {
+        std::cerr << "read failed" << std::endl;
+        close(socket);
+        return;
+    }
+    
+    string ip = ip_str;
+    keys[ip] = value;
+    cout << "ip" << ip << ", value = " << value << endl;
 
+    // Process the received value (e.g., perform some operation)
+    // For demonstration purposes, we simply print the value
 
+    close(socket);
+}
 
 int main() {
     int server_fd, new_socket;
@@ -44,19 +72,16 @@ int main() {
         return 1;
     }
 
-    // Accept incoming connection
-    if ((new_socket = accept(server_fd, (struct sockaddr *)&address, (socklen_t*)&addrlen)) < 0) {
-        std::cerr << "accept" << std::endl;
-        return 1;
-    }
+    while (true) {
+        // Accept incoming connection
+        if ((new_socket = accept(server_fd, (struct sockaddr *)&address, (socklen_t*)&addrlen)) < 0) {
+            std::cerr << "accept" << std::endl;
+            continue;
+        }
 
-    // Read unsigned long from the client
-    if (read(new_socket, &value, sizeof(unsigned long)) < 0) {
-        std::cerr << "read failed" << std::endl;
-        return 1;
+        thread client(client_handle, new_socket);
+        client.detach();
     }
-
-    std::cout << "Received unsigned long value: " << value << std::endl;
 
     return 0;
 }
