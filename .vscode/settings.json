@@ -45,6 +45,9 @@
         "sstream": "cpp",
         "stdexcept": "cpp",
         "streambuf": "cpp",
-        "typeinfo": "cpp"
+        "typeinfo": "cpp",
+        "dirent.h": "c",
+        "stat.h": "c",
+        "stdlib.h": "c"
     }
 }
