@@ -8,7 +8,7 @@ and waiting for input of the key from the user for decryption.
 
 
 ## Run Locally
-- Compile the malware and the server and run server, you can use gcc & g++ to do thar.
+- Compile the malware and the server and run server, you can use gcc & g++ to do that.
 
 ```bash
   gcc -o ransom ransom.c
