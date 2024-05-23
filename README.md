@@ -14,7 +14,7 @@ and waiting for input of the key from the user for decryption.
   gcc -o ransom ransom.c
 ```
 ```bash
-  g++ -o server server.cpp
+  g++ -o server server.cpp -pthread
   ./server
 ```
 
